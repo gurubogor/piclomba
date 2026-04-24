@@ -1,1 +1,1343 @@
-Tolong login menggunakan link berikut https://sites.google.com/view/lombakecsukamakmur
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Portal PIC Lomba Kecamatan Sukamakmur</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700;800&display=swap" rel="stylesheet">
+    
+    <!-- Library Eksternal -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode/1.5.1/qrcode.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: { sans: ['Inter', 'sans-serif'], },
+                    colors: {
+                        brand: {
+                            dark: '#c2410c', primary: '#f97316', secondary: '#fb923c',
+                            accent: '#ffedd5', light: '#fff7ed'
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        .page-view { display: none; opacity: 0; transition: opacity 0.3s ease-in-out; }
+        .page-view.active { display: block; opacity: 1; }
+        .custom-scrollbar::-webkit-scrollbar { height: 6px; width: 6px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: #fff7ed; border-radius: 10px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #fb923c; border-radius: 10px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #f97316; }
+        .hide-scroll::-webkit-scrollbar { display: none; }
+        .hide-scroll { -ms-overflow-style: none; scrollbar-width: none; }
+        .pdf-cover-crop {
+            position: absolute; width: 400%; height: 400%; top: 0; left: 0; border: none;
+            pointer-events: none; background: white; transform: scale(0.25); transform-origin: top left;
+        }
+    </style>
+</head>
+<body class="bg-gradient-to-b from-brand-light to-white text-gray-800 font-sans min-h-screen flex flex-col" onload="initApp()">
+
+    <!-- ========================================== -->
+    <!-- MODALS SECTION                             -->
+    <!-- ========================================== -->
+
+    <!-- Modal Custom Alert -->
+    <div id="customModal" class="fixed inset-0 bg-black bg-opacity-50 z-[90] hidden flex items-center justify-center p-4 backdrop-blur-sm transition-opacity">
+        <div class="bg-white rounded-3xl shadow-2xl p-8 max-w-sm w-full mx-4 transform transition-all scale-95 border border-orange-100 relative overflow-hidden" id="modalContent">
+            <div class="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-orange-500 to-orange-400"></div>
+            <div class="text-center mb-4">
+                <i id="modalIcon" class="fas fa-info-circle text-5xl mb-3 text-brand-secondary"></i>
+                <h3 id="modalTitle" class="text-2xl font-extrabold text-gray-900">Informasi</h3>
+            </div>
+            <p id="modalMessage" class="text-center text-gray-600 mb-8 text-sm md:text-base">Pesan di sini.</p>
+            <button id="btn-close-modal" onclick="closeModal()" class="w-full bg-gradient-to-r from-orange-500 to-orange-400 text-white py-3.5 rounded-xl hover:from-orange-600 hover:to-orange-500 font-bold transition shadow-lg shadow-orange-500/30">Tutup</button>
+        </div>
+    </div>
+
+    <!-- Modal Preview Dokumen PDF -->
+    <div id="docModal" class="fixed inset-0 bg-black bg-opacity-75 z-[80] hidden flex items-center justify-center p-4">
+        <div class="bg-white w-full max-w-4xl h-[85vh] rounded-2xl shadow-2xl overflow-hidden flex flex-col">
+            <div class="p-4 border-b border-orange-100 flex justify-between items-center bg-orange-50/50 flex-shrink-0">
+                <div class="flex items-center">
+                    <i class="fas fa-file-pdf text-red-500 text-2xl mr-3"></i>
+                    <h3 id="docModalTitle" class="font-bold text-lg text-gray-800">Judul Dokumen</h3>
+                </div>
+                <button onclick="closeDocModal()" class="text-gray-500 hover:text-red-500 text-2xl transition"><i class="fas fa-times"></i></button>
+            </div>
+            <div id="docViewerContainer" class="flex-grow p-4 md:p-6 bg-gray-100 relative overflow-hidden flex items-center justify-center">
+            </div>
+            <div class="p-4 border-t border-gray-200 bg-white flex justify-end space-x-3 flex-shrink-0">
+                <button onclick="closeDocModal()" class="px-4 py-2 text-gray-600 font-semibold hover:bg-orange-50 rounded-lg transition">Tutup</button>
+                <button id="btnDownloadDoc" class="bg-gradient-to-r from-brand-primary to-brand-secondary text-white px-6 py-2 rounded-lg font-bold hover:from-orange-600 hover:to-orange-500 transition flex items-center shadow-lg shadow-orange-500/30">
+                    <i class="fas fa-download mr-2"></i> Download File
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal View Peserta (Desain ID Card) -->
+    <div id="modalViewPeserta" class="fixed inset-0 bg-black bg-opacity-60 z-[80] hidden flex items-center justify-center p-4">
+        <div class="bg-white w-full max-w-3xl rounded-3xl shadow-2xl overflow-hidden border border-orange-100 flex flex-col max-h-[95vh]">
+            <div class="p-5 border-b border-gray-100 flex justify-between items-center bg-gray-50 flex-shrink-0">
+                <h3 class="font-extrabold text-lg text-gray-800"><i class="fas fa-user-circle text-blue-500 mr-2"></i> Detail Pendaftaran Peserta</h3>
+                <button onclick="closeFormModal('modalViewPeserta')" class="text-gray-400 hover:text-red-500 text-xl transition"><i class="fas fa-times"></i></button>
+            </div>
+            <div id="view-peserta-content" class="p-6 md:p-8 space-y-4 overflow-y-auto custom-scrollbar bg-gray-100 flex-grow">
+            </div>
+            <div class="p-5 border-t border-gray-100 flex justify-end space-x-3 bg-white flex-shrink-0" id="modalViewPesertaFooter">
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Cetak Kehadiran -->
+    <div id="modalCetakKehadiran" class="fixed inset-0 bg-black bg-opacity-60 z-[80] hidden flex items-center justify-center p-4">
+        <div class="bg-white w-full max-w-md rounded-3xl shadow-2xl overflow-hidden border border-indigo-100">
+            <div class="p-5 border-b border-gray-100 flex justify-between items-center bg-gray-50">
+                <h3 class="font-extrabold text-lg text-gray-800"><i class="fas fa-print text-indigo-500 mr-2"></i> Cetak Daftar Hadir</h3>
+                <button onclick="closeFormModal('modalCetakKehadiran')" class="text-gray-400 hover:text-red-500 text-xl transition"><i class="fas fa-times"></i></button>
+            </div>
+            <div class="p-6 space-y-4">
+                <input type="hidden" id="cetak-kehadiran-iskosong">
+                <div>
+                    <label class="block text-sm font-bold text-gray-700 mb-1">Pilih Cabang Lomba</label>
+                    <select id="modal-filter-lomba-kehadiran" class="w-full border-2 border-gray-200 rounded-xl px-4 py-2.5 focus:border-indigo-500 focus:ring-0 bg-gray-50 focus:bg-white transition"></select>
+                </div>
+                <div class="pt-4 border-t border-gray-100 flex justify-end space-x-3">
+                    <button type="button" onclick="closeFormModal('modalCetakKehadiran')" class="px-5 py-2.5 text-gray-600 font-bold hover:bg-gray-100 rounded-xl transition">Batal</button>
+                    <button onclick="executeCetakKehadiran()" class="bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-2.5 rounded-xl font-bold transition shadow-lg shadow-indigo-600/30 flex items-center">
+                        <i class="fas fa-download mr-2"></i> Download PDF
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Form Berita Acara -->
+    <div id="modalAddBeritaAcara" class="fixed inset-0 bg-black bg-opacity-60 z-[80] hidden flex items-center justify-center p-4">
+        <div class="bg-white w-full max-w-2xl rounded-3xl shadow-2xl overflow-hidden border border-blue-100 flex flex-col max-h-[90vh]">
+            <div class="p-5 border-b border-gray-100 flex justify-between items-center bg-gray-50 flex-shrink-0">
+                <h3 class="font-extrabold text-lg text-gray-800"><i class="fas fa-file-signature text-blue-500 mr-2"></i> Form Berita Acara Juara</h3>
+                <button onclick="closeFormModal('modalAddBeritaAcara')" class="text-gray-400 hover:text-red-500 text-xl transition"><i class="fas fa-times"></i></button>
+            </div>
+            <form id="form-add-berita-acara" onsubmit="submitBeritaAcara(event)" class="p-6 space-y-4 overflow-y-auto custom-scrollbar">
+                <input type="hidden" id="ba-edit-id"> 
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 border-b border-gray-100 pb-4">
+                    <div>
+                        <label class="block text-xs font-bold text-gray-700 mb-1">Pilih Lomba <span class="text-red-500">*</span></label>
+                        <input type="text" id="ba-cabang" list="list-ba-cabang" onchange="populateJuaraDropdowns()" required class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-0 focus:border-blue-500" placeholder="Ketik untuk mencari cabang..." readonly>
+                        <datalist id="list-ba-cabang"></datalist>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-gray-700 mb-1">Tanggal Pelaksanaan <span class="text-red-500">*</span></label>
+                        <input type="date" id="ba-tanggal" required class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-0 focus:border-blue-500">
+                    </div>
+                    <div class="md:col-span-2">
+                        <label class="block text-xs font-bold text-gray-700 mb-1">Tempat Kegiatan <span class="text-red-500">*</span></label>
+                        <input type="text" id="ba-tempat" list="tempat-list" required class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-0 focus:border-blue-500" placeholder="Ketik atau pilih tempat...">
+                        <datalist id="tempat-list">
+                            <option value="SDN Sukamakmur 02"></option>
+                            <option value="SMPN 2 Sukamakmur"></option>
+                            <option value="Lapangan Tinggarjaya"></option>
+                        </datalist>
+                    </div>
+                </div>
+
+                <div class="bg-yellow-50 border border-yellow-200 rounded-xl p-4">
+                    <h4 class="font-bold text-sm text-yellow-800 mb-3"><i class="fas fa-trophy mr-1"></i> Penetapan Juara</h4>
+                    <datalist id="list-peserta-ba"></datalist>
+                    <div class="space-y-3">
+                        <div class="flex gap-2">
+                            <div class="w-24 flex-shrink-0 flex items-center font-bold text-xs text-yellow-700">Juara 1 (Emas)</div>
+                            <input type="text" id="ba-juara1" list="list-peserta-ba" class="flex-grow border border-gray-300 rounded-lg px-2 py-1.5 text-xs bg-white" placeholder="Ketik untuk mencari...">
+                            <input type="number" id="ba-skor1" placeholder="Skor/Waktu" class="w-24 border border-gray-300 rounded-lg px-2 py-1.5 text-xs">
+                        </div>
+                        <div class="flex gap-2">
+                            <div class="w-24 flex-shrink-0 flex items-center font-bold text-xs text-gray-500">Juara 2 (Perak)</div>
+                            <input type="text" id="ba-juara2" list="list-peserta-ba" class="flex-grow border border-gray-300 rounded-lg px-2 py-1.5 text-xs bg-white" placeholder="Ketik untuk mencari...">
+                            <input type="number" id="ba-skor2" placeholder="Skor/Waktu" class="w-24 border border-gray-300 rounded-lg px-2 py-1.5 text-xs">
+                        </div>
+                        <div class="flex gap-2">
+                            <div class="w-24 flex-shrink-0 flex items-center font-bold text-xs text-orange-600">Juara 3 (Perunggu)</div>
+                            <input type="text" id="ba-juara3" list="list-peserta-ba" class="flex-grow border border-gray-300 rounded-lg px-2 py-1.5 text-xs bg-white" placeholder="Ketik untuk mencari...">
+                            <input type="number" id="ba-skor3" placeholder="Skor/Waktu" class="w-24 border border-gray-300 rounded-lg px-2 py-1.5 text-xs">
+                        </div>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-3 gap-3">
+                    <div>
+                        <label class="block text-[10px] font-bold text-gray-500 mb-1">Nama Juri 1 <span class="text-red-500">*</span></label>
+                        <input type="text" id="ba-juri1" required class="w-full border border-gray-300 rounded-md px-2 py-1.5 text-xs focus:ring-0 focus:border-blue-500">
+                    </div>
+                    <div>
+                        <label class="block text-[10px] font-bold text-gray-500 mb-1">Nama Juri 2</label>
+                        <input type="text" id="ba-juri2" class="w-full border border-gray-300 rounded-md px-2 py-1.5 text-xs focus:ring-0 focus:border-blue-500" placeholder="(Opsional)">
+                    </div>
+                    <div>
+                        <label class="block text-[10px] font-bold text-gray-500 mb-1">Nama Juri 3</label>
+                        <input type="text" id="ba-juri3" class="w-full border border-gray-300 rounded-md px-2 py-1.5 text-xs focus:ring-0 focus:border-blue-500" placeholder="(Opsional)">
+                    </div>
+                </div>
+
+                <div class="pt-4 border-t border-gray-100 flex justify-end space-x-3 flex-shrink-0">
+                    <button type="button" onclick="closeFormModal('modalAddBeritaAcara')" class="px-5 py-2 text-gray-600 font-bold hover:bg-gray-100 rounded-xl transition">Batal</button>
+                    <button type="submit" class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-xl font-bold transition shadow-lg shadow-blue-600/30 flex items-center">
+                        <i class="fas fa-save mr-2"></i> Simpan & Buat PDF
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal Lightbox Galeri -->
+    <div id="modalLightbox" class="fixed inset-0 bg-black/95 z-[90] hidden flex flex-col items-center justify-center transition-opacity">
+        <button onclick="closeLightbox()" class="absolute top-4 right-4 md:top-6 md:right-6 text-white/50 hover:text-white text-3xl p-3 transition-colors z-50"><i class="fas fa-times"></i></button>
+        
+        <div class="relative w-full max-w-6xl h-full flex items-center justify-center p-4">
+            <button onclick="navigateLightbox(-1)" class="absolute left-2 md:left-8 text-white/40 hover:text-white text-5xl p-4 transition-colors z-50 drop-shadow-lg"><i class="fas fa-chevron-left"></i></button>
+            
+            <div class="flex flex-col items-center justify-center max-h-full w-full px-16">
+                <img id="lightbox-img" src="" class="max-w-full max-h-[70vh] object-contain rounded-xl shadow-2xl transition-transform duration-300 border-2 border-white/10 bg-black/50" alt="Peserta">
+                
+                <div class="bg-black/60 backdrop-blur-md mt-6 p-5 rounded-2xl border border-white/10 text-center max-w-2xl w-full shadow-xl">
+                    <span id="lightbox-id" class="bg-blue-500/20 text-blue-300 text-[11px] font-bold px-3 py-1 rounded-md border border-blue-400/30 mb-2.5 inline-block tracking-widest uppercase">ID: </span>
+                    <h4 id="lightbox-name" class="font-extrabold text-white text-xl md:text-2xl leading-tight mb-1.5 drop-shadow-md">Nama Peserta</h4>
+                    <p id="lightbox-school" class="text-sm md:text-base text-gray-300 font-medium"><i class="fas fa-school mr-2 text-gray-400"></i>Asal Sekolah</p>
+                </div>
+            </div>
+
+            <button onclick="navigateLightbox(1)" class="absolute right-2 md:right-8 text-white/40 hover:text-white text-5xl p-4 transition-colors z-50 drop-shadow-lg"><i class="fas fa-chevron-right"></i></button>
+        </div>
+    </div>
+
+    <!-- ========================================== -->
+    <!-- NAVIGATION BAR                             -->
+    <!-- ========================================== -->
+    <nav class="bg-white text-gray-800 shadow-md sticky top-0 z-40 border-b border-gray-200">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between h-20 items-center">
+                <div class="flex items-center space-x-4">
+                    <div class="h-12 sm:h-14 flex items-center justify-center overflow-hidden">
+                        <img src="https://i.ibb.co.com/Wvf6CP6Y/Cover-Lomba-2.png" alt="Logo Lomba" class="h-full w-auto object-contain max-w-[120px]">
+                    </div>
+                    <div>
+                        <h1 class="font-extrabold text-lg sm:text-xl leading-tight tracking-wide text-orange-600 drop-shadow-sm">Portal PIC Panitia</h1>
+                        <p class="text-xs sm:text-sm text-gray-500 font-medium mt-0.5">Kecamatan Sukamakmur</p>
+                    </div>
+                </div>
+                <div id="nav-menu" class="flex space-x-2 lg:space-x-4 items-center">
+                    <button id="btn-nav-logout" onclick="logout()" class="hidden bg-red-500 text-white px-5 py-2.5 rounded-xl font-bold hover:bg-red-600 transition text-sm shadow-md ml-2 transform hover:-translate-y-0.5">Keluar</button>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- ========================================== -->
+    <!-- MAIN CONTENT                               -->
+    <!-- ========================================== -->
+    <main class="flex-grow flex flex-col relative">
+
+        <!-- 1. Halaman Login PIC -->
+        <div id="view-login" class="page-view active flex-grow bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] bg-orange-50/50">
+            <div class="flex items-center justify-center min-h-[85vh] px-4 sm:px-6 lg:px-8 py-12">
+                <div class="max-w-md w-full space-y-8 bg-white p-10 rounded-3xl shadow-2xl border border-orange-100 relative overflow-hidden">
+                    <div class="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-orange-500 to-orange-400"></div>
+                    <div class="text-center">
+                        <div class="h-20 sm:h-24 px-4 py-2 inline-flex items-center justify-center mx-auto mb-5 overflow-hidden">
+                            <img src="https://i.ibb.co.com/Wvf6CP6Y/Cover-Lomba-2.png" alt="Logo Lomba" class="h-full w-auto object-contain max-w-[200px]">
+                        </div>
+                        <h2 class="text-3xl font-extrabold text-gray-900">Masuk PIC</h2>
+                        <p class="mt-2 text-sm text-gray-500">Silahkan login untuk akses panitia penanggung jawab.</p>
+                    </div>
+                    <form class="mt-4 space-y-6" onsubmit="handleLoginPIC(event)">
+                        <div class="space-y-4">
+                            <div>
+                                <label for="username" class="block text-sm font-bold text-gray-700 mb-1">ID PIC (Username)</label>
+                                <input id="username" name="username" type="text" required autocomplete="off" class="appearance-none rounded-xl relative block w-full px-4 py-3 border-2 border-gray-200 placeholder-gray-400 text-gray-900 focus:outline-none focus:ring-0 focus:border-orange-500 transition-colors bg-gray-50 focus:bg-white sm:text-sm font-mono uppercase" placeholder="Contoh: PIC01">
+                            </div>
+                            <div>
+                                <label for="password" class="block text-sm font-bold text-gray-700 mb-1">Password</label>
+                                <div class="relative">
+                                    <input id="password" name="password" type="password" required class="appearance-none rounded-xl relative block w-full px-4 py-3 pr-12 border-2 border-gray-200 placeholder-gray-400 text-gray-900 focus:outline-none focus:ring-0 focus:border-orange-500 transition-colors bg-gray-50 focus:bg-white sm:text-sm" placeholder="Masukkan Password">
+                                    <button type="button" onclick="togglePasswordVisibility('password', 'eye-icon-login')" class="absolute inset-y-0 right-0 pr-4 flex items-center text-gray-400 hover:text-orange-500 focus:outline-none transition-colors">
+                                        <i id="eye-icon-login" class="fas fa-eye"></i>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                        <div>
+                            <button type="submit" class="group relative w-full flex justify-center py-3.5 px-4 border border-transparent text-sm font-bold rounded-xl text-white bg-gradient-to-r from-orange-500 to-orange-400 hover:from-orange-600 hover:to-orange-500 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-orange-500 transition-all shadow-lg shadow-orange-500/30 transform hover:-translate-y-0.5">
+                                Masuk Dasbor
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <!-- 2. Dasbor PIC -->
+        <div id="view-dashboard" class="page-view flex-grow pt-8 pb-12 bg-gray-50">
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                
+                <!-- Header PIC (Identik dengan web asli) -->
+                <div class="bg-gradient-to-r from-blue-900 to-blue-800 rounded-3xl shadow-xl p-6 md:p-8 mb-8 text-white flex-col lg:flex-row items-center justify-between border-b-4 border-blue-400 relative overflow-hidden flex">
+                    <div class="absolute top-0 right-0 w-64 h-64 bg-white opacity-5 rounded-full blur-3xl -mr-20 -mt-20"></div>
+                    <div class="flex items-center relative z-10 w-full lg:w-auto mb-6 lg:mb-0">
+                        <div class="bg-blue-500 p-4 rounded-2xl mr-5 text-3xl shadow-lg shadow-blue-500/30 text-white">
+                            <i class="fas fa-user-tie"></i>
+                        </div>
+                        <div>
+                            <p class="text-blue-200 text-sm mb-1 font-semibold uppercase tracking-wider">Selamat Datang, PIC Lomba</p>
+                            <h2 id="pic-name-display" class="text-2xl md:text-3xl font-extrabold tracking-wide text-white">Nama PIC</h2>
+                            <p class="text-blue-100 text-sm mt-1.5 font-medium flex items-center">
+                                <i class="fas fa-trophy mr-2 text-yellow-400"></i> Cabang: <span id="pic-cabang-display" class="ml-1 font-bold text-white bg-blue-700/50 px-2 py-0.5 rounded">Cabang Lomba</span>
+                            </p>
+                        </div>
+                    </div>
+                    
+                    <div class="flex flex-col sm:flex-row gap-4 relative z-10 w-full lg:w-auto">
+                        <div class="bg-white/10 border border-white/20 backdrop-blur-md rounded-2xl p-4 flex flex-col justify-center shadow-lg w-full sm:min-w-[240px]">
+                            <p class="text-blue-200 text-[11px] font-bold uppercase tracking-widest mb-2 border-b border-white/20 pb-1.5"><i class="fas fa-tasks mr-1"></i> Progres Tugas</p>
+                            <div class="space-y-2.5 mt-1">
+                                <div class="flex justify-between items-center">
+                                    <span class="text-sm text-white font-medium flex items-center"><i class="fas fa-clipboard-check w-4 text-blue-300 mr-1.5"></i> Kehadiran</span>
+                                    <span id="pic-prog-hadir" class="text-[10px] font-bold px-2 py-1 rounded bg-gray-500/30 text-gray-200 border border-gray-400/30 uppercase">Menghitung...</span>
+                                </div>
+                                <div class="flex justify-between items-center">
+                                    <span class="text-sm text-white font-medium flex items-center"><i class="fas fa-file-signature w-4 text-blue-300 mr-1.5"></i> Laporan BA</span>
+                                    <span id="pic-prog-ba" class="text-[10px] font-bold px-2 py-1 rounded bg-gray-500/30 text-gray-200 border border-gray-400/30 uppercase">Menghitung...</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="bg-white/10 border border-white/20 backdrop-blur-md rounded-2xl p-4 flex items-center justify-center shadow-lg w-full sm:min-w-[150px]">
+                            <div class="text-center w-full">
+                                <p class="text-blue-200 text-[11px] font-bold uppercase tracking-widest mb-1.5"><i class="fas fa-users mr-1"></i> Peserta</p>
+                                <div class="flex items-baseline justify-center">
+                                    <span id="pic-total-peserta-display" class="text-4xl font-black text-white drop-shadow-md">0</span>
+                                    <span class="text-xs font-bold text-blue-200 ml-1.5">Siswa</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Navigasi Tab PIC (Menggunakan style Admin Tab asli) -->
+                <div class="flex space-x-2 border-b border-gray-200 mb-8 overflow-x-auto pb-1">
+                    <button onclick="switchPicTab('galeri')" id="tab-pic-galeri" class="pic-tab py-2.5 px-5 rounded-t-lg bg-white border-b-2 border-gray-800 text-gray-800 font-bold whitespace-nowrap transition-colors"><i class="fas fa-images mr-1"></i> Galeri Peserta</button>
+                    <button onclick="switchPicTab('kehadiran')" id="tab-pic-kehadiran" class="pic-tab py-2.5 px-5 rounded-t-lg border-b-2 border-transparent text-gray-500 hover:bg-gray-100 hover:text-gray-800 font-semibold whitespace-nowrap transition-colors"><i class="fas fa-clipboard-check mr-1"></i> Kehadiran</button>
+                    <button onclick="switchPicTab('laporan')" id="tab-pic-laporan" class="pic-tab py-2.5 px-5 rounded-t-lg border-b-2 border-transparent text-gray-500 hover:bg-gray-100 hover:text-gray-800 font-semibold whitespace-nowrap transition-colors"><i class="fas fa-file-signature mr-1"></i> Berita Acara</button>
+                </div>
+
+                <!-- KONTEN: GALERI PESERTA (Persis asli) -->
+                <div id="pic-content-galeri" class="pic-content-section bg-white rounded-3xl shadow-md border border-gray-100 overflow-hidden">
+                    <div class="p-6 border-b border-gray-100 bg-white flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                        <h3 class="font-extrabold text-gray-800 text-lg flex items-center">
+                            <div class="bg-blue-100 text-blue-600 w-8 h-8 rounded-lg flex items-center justify-center mr-3 text-sm"><i class="fas fa-images"></i></div>
+                            Galeri Peserta (Terverifikasi)
+                        </h3>
+                        <div class="flex items-center gap-2 w-full md:w-auto justify-end">
+                            <input type="text" id="admin-search-galeri" oninput="renderPicGaleri()" placeholder="Cari nama / sekolah..." class="border-2 border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:border-blue-500 focus:ring-0 transition w-full md:w-56">
+                        </div>
+                    </div>
+
+                    <div class="p-6 bg-gray-50/50">
+                        <div id="pic-galeri-grid" class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6"></div>
+                        
+                        <div id="pic-galeri-empty" class="hidden text-center py-16 text-gray-400">
+                            <div class="bg-white w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-4 shadow-sm border border-gray-100"><i class="fas fa-images text-4xl text-gray-300"></i></div>
+                            <p class="font-medium">Tidak ada data peserta/foto yang sesuai.</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- KONTEN: KEHADIRAN (Persis asli) -->
+                <div id="pic-content-kehadiran" class="pic-content-section hidden bg-white rounded-3xl shadow-md border border-gray-100 overflow-hidden">
+                    <div class="p-6 border-b border-gray-100 bg-white">
+                        <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-4">
+                            <h3 class="font-extrabold text-gray-800 text-lg flex items-center">
+                                <div class="bg-green-100 text-green-600 w-8 h-8 rounded-lg flex items-center justify-center mr-3 text-sm"><i class="fas fa-clipboard-check"></i></div>
+                                Kehadiran Peserta 
+                            </h3>
+                        </div>
+                        <div class="flex flex-wrap gap-3 items-center justify-between">
+                            <div class="flex items-center space-x-2 bg-gray-50 p-2 rounded-lg border border-gray-200 w-full lg:w-auto overflow-x-auto">
+                                <span class="text-xs font-bold text-gray-500 mr-2 whitespace-nowrap">Aksi Masal:</span>
+                                <button onclick="bulkActionKehadiran('hadir')" class="bg-green-600 hover:bg-green-700 text-white px-3 py-1.5 rounded text-xs font-bold transition whitespace-nowrap"><i class="fas fa-user-check mr-1"></i> Tandai Hadir</button>
+                                <button onclick="bulkActionKehadiran('batal')" class="bg-gray-400 hover:bg-gray-500 text-white px-3 py-1.5 rounded text-xs font-bold transition whitespace-nowrap"><i class="fas fa-user-times mr-1"></i> Batalkan Hadir</button>
+                            </div>
+                            <div class="flex flex-wrap items-center gap-2 flex-grow lg:flex-grow-0 justify-end">
+                                <input type="text" id="admin-search-kehadiran" oninput="renderPicKehadiran()" placeholder="Cari nama peserta..." class="flex-grow md:w-48 border-2 border-gray-200 rounded-xl px-4 py-2 text-sm focus:border-green-500 focus:ring-0 transition">
+                                <button onclick="openModalCetakKehadiran(false)" class="bg-indigo-500 hover:bg-indigo-600 text-white px-3 py-2 rounded-xl text-sm font-bold transition shadow-sm whitespace-nowrap"><i class="fas fa-print mr-1"></i> Cetak Kehadiran</button>
+                                <button onclick="openModalCetakKehadiran(true)" class="bg-gray-100 hover:bg-gray-200 text-gray-700 border border-gray-300 px-3 py-2 rounded-xl text-sm font-bold transition shadow-sm whitespace-nowrap"><i class="fas fa-download mr-1"></i> Format Kosong</button>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="overflow-x-auto p-4">
+                        <table class="w-full text-left border-collapse">
+                            <thead>
+                                <tr class="bg-gray-50 text-gray-500 text-xs uppercase tracking-wider border-b border-gray-200">
+                                    <th class="p-4 rounded-tl-lg w-10 text-center"><input type="checkbox" id="selectAllKehadiran" onchange="toggleSelectAll('.cb-kehadiran', this)" class="w-4 h-4 text-green-500 rounded focus:ring-green-400"></th>
+                                    <th class="p-4 font-bold">Sekolah</th>
+                                    <th class="p-4 font-bold">Peserta / Cabang</th>
+                                    <th class="p-4 font-bold text-center">Status Daftar</th>
+                                    <th class="p-4 font-bold text-center rounded-tr-lg">Kehadiran (Aksi)</th>
+                                </tr>
+                            </thead>
+                            <tbody id="pic-kehadiran-table" class="text-sm divide-y divide-gray-100"></tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- KONTEN: BERITA ACARA (Sesuai sub-tab asli Laporan) -->
+                <div id="pic-content-laporan" class="pic-content-section hidden bg-white rounded-3xl shadow-md border border-gray-100 overflow-hidden">
+                    <div class="p-6 border-b border-gray-100 pb-4">
+                        <div class="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
+                            <div class="flex items-center gap-4 flex-wrap w-full lg:w-auto">
+                                <h3 class="font-extrabold text-gray-800 text-lg flex items-center">
+                                    <div class="bg-blue-100 text-blue-600 w-8 h-8 rounded-lg flex items-center justify-center mr-3 text-sm"><i class="fas fa-file-signature"></i></div> Data Berita Acara
+                                </h3>
+                            </div>
+                            <div class="flex flex-wrap items-center gap-2 w-full lg:w-auto justify-end">
+                                <button onclick="openAddBeritaAcaraModal()" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-xl text-sm font-bold transition-colors flex items-center justify-center shadow-md flex-grow md:flex-grow-0 whitespace-nowrap">
+                                    <i class="fas fa-plus mr-1"></i> Buat Berita Acara
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="overflow-x-auto p-4 pt-0">
+                        <table class="w-full text-left border-collapse">
+                            <thead>
+                                <tr class="bg-blue-50 text-blue-800 text-xs uppercase tracking-wider border-b border-blue-200">
+                                    <th class="p-3 font-bold rounded-tl-lg">Cabang Lomba</th>
+                                    <th class="p-3 font-bold">Waktu & Tempat</th>
+                                    <th class="p-3 font-bold">Juara (1, 2, 3)</th>
+                                    <th class="p-3 font-bold text-center">Status</th>
+                                    <th class="p-3 font-bold text-center rounded-tr-lg">Aksi</th>
+                                </tr>
+                            </thead>
+                            <tbody id="pic-ba-table" class="text-sm divide-y divide-gray-100"></tbody>
+                        </table>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </main>
+
+    <!-- Footer Asli -->
+    <footer class="bg-white text-gray-400 py-8 border-t border-gray-100 mt-auto">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col md:flex-row justify-between items-center text-sm">
+            <div class="mb-4 md:mb-0 flex items-center">
+                <img src="https://i.ibb.co.com/Wvf6CP6Y/Cover-Lomba-2.png" alt="Logo" class="h-10 w-auto rounded-md mr-4 grayscale opacity-50 object-contain bg-white px-1 py-1">
+                <p>&copy; FSS 2026</p>
+            </div>
+            <p class="font-medium text-xs bg-gray-100 px-3 py-1.5 rounded-full">Panitia Lomba Kecamatan Sukamakmur</p>
+        </div>
+    </footer>
+
+    <!-- ========================================== -->
+    <!-- LOGIKA JAVASCRIPT                          -->
+    <!-- ========================================== -->
+    <script>
+        const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwgiaujeKcPpf2HQWHKZcICxsrFAlIvdgV4hq6EuGEIY40IaX14wu80BwftWIrr38YY/exec";
+
+        let DATA_REGISTRATIONS = [];
+        let DATA_PICS = [];
+        let DATA_BERITA_ACARA = [];
+        const LOMBA_CATEGORIES = {
+            'FLS3N': [{name: 'Gambar Bercerita', count: 1}, {name: 'Menyanyi Solo', count: 1}, {name: 'Kriya', count: 1}, {name: 'Mendongeng', count: 1}, {name: 'Menulis Cerita', count: 1}, {name: 'Pantomim', count: 2}, {name: 'Tari', count: 3}],
+            'O2SN & Oltrad': [{name: "Kids' Athletics Putra", count: 1}, {name: "Kids' Athletics Putri", count: 1}, {name: 'Pencak Silat Putra', count: 1}, {name: 'Pencak Silat Putri', count: 1}, {name: 'Sepak Bola Mini', count: 10}, {name: 'Egrang', count: 4}, {name: 'Terompah Panjang', count: 4}, {name: 'Dagongan', count: 6}, {name: 'Sumpitan', count: 3}, {name: 'Hadangan', count: 7}],
+            'FTBI': [{name: 'Ngadongéng Putra', count: 1}, {name: 'Ngadongéng Putri', count: 1}, {name: 'Biantara Putra', count: 1}, {name: 'Biantara Putri', count: 1}, {name: 'Maca Sajak Putra', count: 1}, {name: 'Maca Sajak Putri', count: 1}, {name: 'Nembang Pupuh Putra', count: 1}, {name: 'Nembang Pupuh Putri', count: 1}, {name: 'Ngarang Carita Pondok Putra', count: 1}, {name: 'Ngarang Carita Pondok Putri', count: 1}, {name: 'Ngabodor Sorangan Putra', count: 1}, {name: 'Ngabodor Sorangan Putri', count: 1}],
+            'Pentas PAI': [{name: 'LCC-PAI', count: 3}, {name: 'Da’i Cilik Putra', count: 1}, {name: 'Da’i Cilik Putri', count: 1}, {name: 'MTQ Putra', count: 1}, {name: 'MTQ Putri', count: 1}, {name: 'MHQ Putra', count: 1}, {name: 'MHQ Putri', count: 1}, {name: 'Kaligrafi Putra', count: 1}, {name: 'Kaligrafi Putri', count: 1}]
+        };
+
+        let currentState = { view: 'login', user: null }; 
+        let globalModalTimer;
+        let currentGalleryItems = [];
+        let currentLightboxIndex = 0;
+        let autoSyncTimer;
+
+        // --- Helper Fungsi ---
+        function getTodayDate() { return new Date().toISOString().split('T')[0]; }
+        function formatDate(dateStr) { 
+            if (!dateStr) return '';
+            const d = new Date(dateStr);
+            if (!isNaN(d.getTime())) return d.toLocaleDateString('id-ID', {day:'numeric', month:'long', year:'numeric'});
+            return dateStr; 
+        }
+        function getCleanDriveImage(url) {
+            if (!url) return '';
+            const match = url.match(/(?:drive\.google\.com\/file\/d\/|drive\.google\.com\/open\?id=|drive\.google\.com\/uc\?id=)([-\w]+)/);
+            if (match && match[1]) return `https://drive.google.com/thumbnail?id=${match[1]}&sz=w600&t=${new Date().getTime()}`; 
+            return url;
+        }
+        function getEmbedUrl(url) {
+            if (!url) return '';
+            if (url.includes('drive.google.com/file/d/')) return url.replace(/\/view.*$/, '/preview') + '?t=' + new Date().getTime();
+            return url;
+        }
+        function generateQRBase64(text) {
+            return new Promise((resolve) => {
+                const canvas = document.createElement('canvas');
+                QRCode.toCanvas(canvas, text, { margin: 0, width: 200 }, function (error) { resolve(canvas.toDataURL('image/png')); });
+            });
+        }
+        function fetchLogoBase64(url) {
+            return new Promise((resolve) => {
+                const img = new Image();
+                img.crossOrigin = 'Anonymous';
+                img.onload = () => {
+                    const canvas = document.createElement('canvas');
+                    canvas.width = img.width; canvas.height = img.height;
+                    const ctx = canvas.getContext('2d');
+                    ctx.drawImage(img, 0, 0);
+                    resolve(canvas.toDataURL('image/png'));
+                };
+                img.onerror = () => resolve(null);
+                img.src = url;
+            });
+        }
+
+        // --- Sinkronisasi ---
+        async function syncDatabase(forceRefresh = false) {
+            try {
+                const cachedData = localStorage.getItem('picLombaData');
+                if (cachedData && !forceRefresh) processData(JSON.parse(cachedData));
+
+                const response = await fetch(SCRIPT_URL + "?action=getAll").then(r => r.json()).catch(() => null);
+                if (response && response.status === 'success') {
+                    localStorage.setItem('picLombaData', JSON.stringify(response.data));
+                    processData(response.data);
+                }
+            } catch (error) { console.warn("Sync failed", error); }
+        }
+
+        async function syncUpdateToServer(payloadData, isAutoSync = true) {
+            try {
+                await fetch(SCRIPT_URL, { method: 'POST', body: JSON.stringify(payloadData) });
+                if (isAutoSync) await syncDatabase(true);
+            } catch(e) { console.error("Update failed:", e); }
+        }
+
+        function processData(data) {
+            DATA_REGISTRATIONS = data.pendaftaran || [];
+            DATA_BERITA_ACARA = data.berita_acara || [];
+            if(data.pengaturan && data.pengaturan.pics) DATA_PICS = data.pengaturan.pics;
+            if (currentState.view === 'dashboard') renderDashboard();
+        }
+
+        async function initApp() {
+            await syncDatabase(true);
+            if(autoSyncTimer) clearInterval(autoSyncTimer);
+            autoSyncTimer = setInterval(async () => {
+                const isModalOpen = document.body.classList.contains('overflow-hidden');
+                const hasCheckedBoxes = document.querySelectorAll('input[type="checkbox"]:checked').length > 0;
+                if (!isModalOpen && !hasCheckedBoxes) await syncDatabase(true);
+            }, 60000);
+        }
+
+        // --- UI & Modal ---
+        function showModal(title, message, type = 'info', hideBtn = false, timeout = 3000) {
+            document.getElementById('modalTitle').innerText = title;
+            document.getElementById('modalMessage').innerText = message;
+            const icon = document.getElementById('modalIcon');
+            if(type === 'success') icon.className = 'fas fa-check-circle text-5xl mb-3 text-green-500';
+            else if (type === 'error') icon.className = 'fas fa-times-circle text-5xl mb-3 text-red-500';
+            else icon.className = 'fas fa-info-circle text-5xl mb-3 text-orange-500';
+            const btn = document.getElementById('btn-close-modal');
+            hideBtn ? btn.classList.add('hidden') : btn.classList.remove('hidden');
+
+            const modal = document.getElementById('customModal');
+            const content = document.getElementById('modalContent');
+            document.body.classList.add('overflow-hidden');
+            modal.classList.remove('hidden');
+            setTimeout(() => { content.classList.remove('scale-95'); content.classList.add('scale-100'); }, 10);
+
+            clearTimeout(globalModalTimer);
+            if(timeout > 0) globalModalTimer = setTimeout(() => closeModal(), timeout);
+        }
+
+        function closeModal() {
+            clearTimeout(globalModalTimer);
+            const modal = document.getElementById('customModal');
+            const content = document.getElementById('modalContent');
+            content.classList.remove('scale-100'); content.classList.add('scale-95');
+            setTimeout(() => { modal.classList.add('hidden'); document.body.classList.remove('overflow-hidden'); }, 200);
+        }
+
+        function openFormModal(id) { document.body.classList.add('overflow-hidden'); document.getElementById(id).classList.remove('hidden'); }
+        function closeFormModal(id) { document.body.classList.remove('overflow-hidden'); document.getElementById(id).classList.add('hidden'); }
+        function togglePasswordVisibility(inId, icId) {
+            const input = document.getElementById(inId); const icon = document.getElementById(icId);
+            if (input.type === "password") { input.type = "text"; icon.classList.replace("fa-eye", "fa-eye-slash"); } 
+            else { input.type = "password"; icon.classList.replace("fa-eye-slash", "fa-eye"); }
+        }
+
+        async function withLoadingButton(e, text, callback) {
+            if(e) e.preventDefault();
+            const btn = e ? (e.target.querySelector('button[type="submit"]') || e.target) : null;
+            const origin = btn ? btn.innerHTML : '';
+            if(btn) { btn.innerHTML = `<i class="fas fa-spinner fa-spin mr-1"></i> ${text}`; btn.disabled = true; btn.classList.add('opacity-70'); }
+            try { await callback(); } 
+            finally { if(btn) { btn.innerHTML = origin; btn.disabled = false; btn.classList.remove('opacity-70'); } }
+        }
+
+        function activateTab(tabGroupClass, tabIdPrefix, tabId, activeClasses, inactiveClasses, contentClass, contentPrefix) {
+            document.querySelectorAll('.' + tabGroupClass).forEach(el => {
+                el.classList.remove(...activeClasses); el.classList.add(...inactiveClasses);
+            });
+            const activeTab = document.getElementById(tabIdPrefix + tabId);
+            if(activeTab) {
+                activeTab.classList.add(...activeClasses); activeTab.classList.remove(...inactiveClasses);
+            }
+            document.querySelectorAll('.' + contentClass).forEach(el => el.classList.add('hidden'));
+            const activeContent = document.getElementById(contentPrefix + tabId);
+            if(activeContent) activeContent.classList.remove('hidden');
+        }
+
+        function navigate(view) {
+            document.querySelectorAll('.page-view').forEach(el => el.classList.remove('active'));
+            document.getElementById(`view-${view}`).classList.add('active');
+            currentState.view = view;
+            
+            if(view === 'dashboard') {
+                document.getElementById('btn-nav-logout').classList.remove('hidden');
+                document.getElementById('pic-name-display').innerText = currentState.user.nama;
+                document.getElementById('pic-cabang-display').innerText = currentState.user.cabang;
+                switchPicTab('galeri');
+            } else {
+                document.getElementById('btn-nav-logout').classList.add('hidden');
+            }
+            window.scrollTo(0,0);
+        }
+
+        // --- Login Logic ---
+        function handleLoginPIC(e) {
+            e.preventDefault();
+            const user = document.getElementById('username').value.trim();
+            const pass = document.getElementById('password').value.trim();
+
+            const picMatch = DATA_PICS.find(p => p.idPic.toLowerCase() === user.toLowerCase() && String(p.pass) === String(pass));
+            if (picMatch) {
+                currentState.user = { role: 'pic', nama: picMatch.nama, idPic: picMatch.idPic, cabang: picMatch.cabang };
+                e.target.reset();
+                showModal('Berhasil Masuk', `Selamat datang PIC ${picMatch.nama}`, 'success', true, 1000);
+                setTimeout(() => navigate('dashboard'), 1000);
+            } else {
+                showModal('Login Gagal', 'ID PIC atau Password salah. Atau pastikan data sudah ter-sync dengan server.', 'error');
+            }
+        }
+
+        function logout() { currentState.user = null; navigate('login'); }
+
+        // --- Dashboard PIC TABS ---
+        function switchPicTab(tabId) {
+            activateTab('pic-tab', 'tab-pic-', tabId, 
+                ['bg-white', 'border-gray-800', 'text-gray-800', 'font-bold'], 
+                ['border-transparent', 'text-gray-500', 'font-semibold'], 
+                'pic-content-section', 'pic-content-');
+            renderDashboard();
+        }
+
+        function updatePicProgress() {
+            if (!currentState.user) return;
+            const cabang = currentState.user.cabang;
+            let targetRegs = DATA_REGISTRATIONS.filter(r => r.status === 'terdaftar');
+            if(cabang !== 'Semua') targetRegs = targetRegs.filter(r => r.lomba === cabang);
+
+            const total = targetRegs.length;
+            const hadir = targetRegs.filter(r => r.hadir).length;
+            
+            document.getElementById('pic-total-peserta-display').innerText = total;
+            const elProgHadir = document.getElementById('pic-prog-hadir');
+            
+            if(total === 0) { elProgHadir.className = "text-[10px] font-bold px-2 py-1 rounded bg-gray-500/30 text-gray-200 border border-gray-400/30 uppercase"; elProgHadir.innerText = "Belum Ada Data"; }
+            else if(hadir === total) { elProgHadir.className = "text-[10px] font-bold px-2 py-1 rounded bg-green-500/30 text-green-300 border border-green-400/30 uppercase"; elProgHadir.innerText = "Selesai"; }
+            else { elProgHadir.className = "text-[10px] font-bold px-2 py-1 rounded bg-yellow-500/30 text-yellow-300 border border-yellow-400/30 uppercase"; elProgHadir.innerText = `Menunggu (${hadir}/${total})`; }
+
+            // BA Progress
+            const baMatch = DATA_BERITA_ACARA.find(b => b.cabang === cabang);
+            const elProgBA = document.getElementById('pic-prog-ba');
+            if(cabang === 'Semua') {
+                elProgBA.innerText = "Mode Akses Penuh"; elProgBA.className = "text-[10px] font-bold px-2 py-1 rounded bg-blue-500/30 text-blue-200 border border-blue-400/30 uppercase w-full";
+            } else if(!baMatch) {
+                elProgBA.innerText = "Belum Dibuat"; elProgBA.className = "text-[10px] font-bold px-2 py-1 rounded bg-gray-500/30 text-gray-200 border border-gray-400/30 uppercase w-full";
+            } else {
+                if(baMatch.status === 'disetujui') { elProgBA.innerText = "Selesai"; elProgBA.className = "text-[10px] font-bold px-2 py-1 rounded bg-green-500/30 text-green-300 border border-green-400/30 uppercase w-full"; }
+                else if(baMatch.status === 'revisi') { elProgBA.innerText = "Perlu Revisi"; elProgBA.className = "text-[10px] font-bold px-2 py-1 rounded bg-red-500/30 text-red-300 border border-red-400/30 uppercase w-full"; }
+                else { elProgBA.innerText = "Mngg Verifikasi"; elProgBA.className = "text-[10px] font-bold px-2 py-1 rounded bg-yellow-500/30 text-yellow-300 border border-yellow-400/30 uppercase w-full"; }
+            }
+        }
+
+        function renderDashboard() {
+            if(!currentState.user) return;
+            updatePicProgress();
+            
+            if(!document.getElementById('pic-content-galeri').classList.contains('hidden')) renderPicGaleri();
+            if(!document.getElementById('pic-content-kehadiran').classList.contains('hidden')) renderPicKehadiran();
+            if(!document.getElementById('pic-content-laporan').classList.contains('hidden')) renderPicBA();
+        }
+
+        // --- GALERI PIC ---
+        function renderPicGaleri() {
+            const grid = document.getElementById('pic-galeri-grid');
+            const emptyState = document.getElementById('pic-galeri-empty');
+            if(!grid || !emptyState) return;
+
+            const searchTerm = (document.getElementById('admin-search-galeri')?.value || '').toLowerCase();
+            let pesertaFiltered = DATA_REGISTRATIONS.filter(r => r.status === 'terdaftar');
+            
+            if(currentState.user.cabang !== 'Semua') {
+                pesertaFiltered = pesertaFiltered.filter(r => r.lomba === currentState.user.cabang);
+            }
+
+            if(searchTerm) {
+                pesertaFiltered = pesertaFiltered.filter(r => 
+                    r.namaPeserta.toLowerCase().includes(searchTerm) || 
+                    r.namaSekolah.toLowerCase().includes(searchTerm) ||
+                    r.idPeserta.toLowerCase().includes(searchTerm)
+                );
+            }
+
+            currentGalleryItems = pesertaFiltered;
+
+            if(pesertaFiltered.length === 0) {
+                grid.innerHTML = '';
+                emptyState.classList.remove('hidden');
+            } else {
+                emptyState.classList.add('hidden');
+                grid.innerHTML = pesertaFiltered.map((p, index) => {
+                    const cleanFotoUrl = getCleanDriveImage(p.fotoUrl);
+                    const fotoHtml = p.fotoUrl 
+                        ? `<img src="${cleanFotoUrl}" class="w-full h-56 md:h-72 object-cover object-top transition-transform duration-700 group-hover:scale-110" referrerpolicy="no-referrer" alt="Foto">` 
+                        : `<div class="w-full h-56 md:h-72 bg-gray-200 flex flex-col items-center justify-center text-gray-400"><i class="fas fa-user-alt text-5xl mb-2"></i><span class="text-[10px] font-bold uppercase">No Photo</span></div>`;
+                    
+                    return `
+                        <div onclick="openLightbox(${index})" class="bg-white rounded-3xl overflow-hidden shadow-sm hover:shadow-2xl border border-gray-200 transition-all duration-300 cursor-pointer group flex flex-col relative transform hover:-translate-y-1">
+                            <div class="relative overflow-hidden w-full bg-gray-100 flex-grow">
+                                ${fotoHtml}
+                                <div class="absolute inset-0 bg-gradient-to-t from-black/60 via-black/0 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center">
+                                    <i class="fas fa-search-plus text-white/90 text-4xl drop-shadow-xl transform scale-50 group-hover:scale-100 transition-transform duration-300"></i>
+                                </div>
+                            </div>
+                            
+                            <div class="p-4 border-t border-gray-100 bg-white relative z-10 shrink-0 text-center">
+                                <span class="bg-blue-50 text-blue-600 text-[10px] font-black px-2.5 py-1 rounded-md border border-blue-100 mb-2 inline-block tracking-widest uppercase">ID: ${p.idPeserta}</span>
+                                <h4 class="font-extrabold text-gray-900 text-sm leading-tight mb-1 truncate px-2" title="${p.namaPeserta}">${p.namaPeserta}</h4>
+                                <p class="text-[10px] font-bold text-gray-500 truncate" title="${p.namaSekolah}"><i class="fas fa-school text-gray-400 mr-1"></i>${p.namaSekolah}</p>
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+            }
+        }
+
+        // LIGHTBOX
+        function openLightbox(index) {
+            currentLightboxIndex = index;
+            updateLightboxView();
+            document.getElementById('modalLightbox').classList.remove('hidden');
+            document.body.classList.add('overflow-hidden');
+            setTimeout(() => { document.getElementById('modalLightbox').style.opacity = '1'; }, 10);
+        }
+        function closeLightbox() {
+            document.getElementById('modalLightbox').style.opacity = '0';
+            setTimeout(() => {
+                document.getElementById('modalLightbox').classList.add('hidden');
+                document.body.classList.remove('overflow-hidden');
+            }, 300);
+        }
+        function navigateLightbox(direction) {
+            const imgEl = document.getElementById('lightbox-img');
+            imgEl.style.transform = 'scale(0.95)'; imgEl.style.opacity = '0.5';
+            setTimeout(() => {
+                currentLightboxIndex += direction;
+                if (currentLightboxIndex < 0) currentLightboxIndex = currentGalleryItems.length - 1;
+                if (currentLightboxIndex >= currentGalleryItems.length) currentLightboxIndex = 0;
+                updateLightboxView();
+                imgEl.style.transform = 'scale(1)'; imgEl.style.opacity = '1';
+            }, 200);
+        }
+        function updateLightboxView() {
+            const p = currentGalleryItems[currentLightboxIndex]; if(!p) return;
+            const imgEl = document.getElementById('lightbox-img');
+            imgEl.src = p.fotoUrl ? getCleanDriveImage(p.fotoUrl) : 'https://via.placeholder.com/600x800/e2e8f0/94a3b8?text=Belum+Ada+Foto';
+            document.getElementById('lightbox-id').innerText = p.idPeserta;
+            document.getElementById('lightbox-name').innerText = p.namaPeserta.toUpperCase();
+            document.getElementById('lightbox-school').innerHTML = '<i class="fas fa-school mr-2 text-gray-400"></i>' + p.namaSekolah;
+        }
+
+        document.addEventListener('keydown', function(event) {
+            if (!document.getElementById('modalLightbox').classList.contains('hidden')) {
+                if (event.key === 'ArrowLeft') navigateLightbox(-1);
+                if (event.key === 'ArrowRight') navigateLightbox(1);
+                if (event.key === 'Escape') closeLightbox();
+            }
+        });
+
+        // --- KEHADIRAN PIC ---
+        function renderPicKehadiran() {
+            const tbody = document.getElementById('pic-kehadiran-table');
+            if(!tbody) return;
+
+            const searchTerm = (document.getElementById('admin-search-kehadiran')?.value || '').toLowerCase();
+            let displayRegs = DATA_REGISTRATIONS.filter(r => r.status === 'terdaftar');
+            
+            if(currentState.user.role === 'pic' && currentState.user.cabang !== 'Semua') {
+                displayRegs = displayRegs.filter(r => r.lomba === currentState.user.cabang);
+            }
+            if(searchTerm) {
+                displayRegs = displayRegs.filter(r => r.namaPeserta.toLowerCase().includes(searchTerm) || r.namaSekolah.toLowerCase().includes(searchTerm) || r.lomba.toLowerCase().includes(searchTerm));
+            }
+
+            const content = displayRegs.map(reg => `
+                <tr class="hover:bg-gray-50 transition-colors border-b border-gray-100 last:border-0">
+                    <td class="p-4 text-center"><input type="checkbox" class="cb-kehadiran w-4 h-4 text-green-500 rounded focus:ring-green-400" value="${reg.id}"></td>
+                    <td class="p-4"><p class="font-bold text-gray-800">${reg.namaSekolah}</p></td>
+                    <td class="p-4"><p class="font-bold text-gray-800 text-sm">${reg.namaPeserta}</p><p class="text-xs text-gray-500">${reg.lomba}</p></td>
+                    <td class="p-4 text-center"><span class="bg-green-100 text-green-800 py-1 px-2 rounded-lg text-xs font-bold whitespace-nowrap">Disetujui</span></td>
+                    <td class="p-4 text-center">
+                        <button onclick="toggleKehadiran(${reg.id}, ${reg.hadir})" class="${reg.hadir ? 'bg-green-600 hover:bg-green-700 text-white' : 'bg-gray-200 hover:bg-green-100 text-gray-600 hover:text-green-700'} px-4 py-2 rounded-lg text-sm font-bold transition-all shadow-sm mb-1">${reg.hadir ? '<i class="fas fa-user-check mr-1"></i> Hadir' : 'Tandai Hadir'}</button>
+                        <br>
+                        <button onclick="viewPesertaDataPublic(${reg.id})" class="bg-blue-50 hover:bg-blue-500 hover:text-white text-blue-600 px-3 py-1.5 rounded-lg transition-all text-xs font-bold"><i class="fas fa-eye"></i> Detail</button>
+                    </td>
+                </tr>`).join('');
+            
+            tbody.innerHTML = content || '<tr><td colspan="5" class="p-8 text-center text-gray-400">Tidak ada data kehadiran yang sesuai.</td></tr>';
+            document.getElementById('selectAllKehadiran').checked = false;
+        }
+
+        function toggleSelectAll(selector, el) { document.querySelectorAll(selector).forEach(cb => cb.checked = el.checked); }
+        
+        async function toggleKehadiran(id, isCurrentlyHadir) {
+            const index = DATA_REGISTRATIONS.findIndex(r => r.id === id);
+            if(index !== -1) {
+                DATA_REGISTRATIONS[index].hadir = !isCurrentlyHadir;
+                renderPicKehadiran(); updatePicProgress();
+                syncUpdateToServer({ action: 'update_hadir_batch', ids: [id], hadir: !isCurrentlyHadir }, false);
+            }
+        }
+
+        async function bulkActionKehadiran(action) {
+            const checked = document.querySelectorAll('.cb-kehadiran:checked');
+            if(checked.length === 0) return;
+            const isHadir = action === 'hadir';
+            showModal('Memproses...', 'Menyimpan data...', 'info', true, 0);
+            
+            let ids = [];
+            for(let cb of checked) {
+                const id = parseInt(cb.value); ids.push(id);
+                const i = DATA_REGISTRATIONS.findIndex(r => r.id === id);
+                if(i !== -1) DATA_REGISTRATIONS[i].hadir = isHadir;
+            }
+            try {
+                await syncUpdateToServer({ action: 'update_hadir_batch', ids: ids, hadir: isHadir }, false);
+                document.getElementById('selectAllKehadiran').checked = false;
+                renderPicKehadiran(); updatePicProgress();
+                showModal('Sukses', `${ids.length} peserta diperbarui.`, 'success', true, 1500);
+            } catch(e) { showModal('Error', 'Gagal memproses', 'error'); }
+        }
+
+        // Tampilan khusus Detail Peserta Publik/PIC
+        function viewPesertaDataPublic(id) {
+            const reg = DATA_REGISTRATIONS.find(r => r.id === id);
+            if(!reg) return;
+            
+            const shortName = abbreviateName(reg.namaPeserta);
+            const cleanFotoUrl = getCleanDriveImage(reg.fotoUrl);
+            const fotoElement = reg.fotoUrl 
+                ? `<img src="${cleanFotoUrl}" class="w-20 h-28 md:w-24 md:h-32 object-cover rounded-xl border-[3px] border-white shadow-md bg-gray-50 flex-shrink-0" referrerpolicy="no-referrer" alt="Foto">` 
+                : `<div class="w-20 h-28 md:w-24 md:h-32 border-2 border-dashed border-gray-300 flex items-center justify-center text-gray-400 text-[10px] text-center rounded-xl bg-white shadow-sm flex-shrink-0">Foto Kosong</div>`;
+
+            document.getElementById('view-peserta-content').innerHTML = `
+                <div class="-m-2 md:-m-4">
+                    <div class="w-full max-w-sm mx-auto bg-white rounded-2xl overflow-hidden shadow-lg border border-orange-200 font-sans relative">
+                        <div class="absolute top-0 right-0 w-40 h-40 bg-gradient-to-bl from-orange-200 to-transparent rounded-bl-full opacity-40 z-0 pointer-events-none"></div>
+                        <div class="absolute bottom-0 left-0 w-32 h-32 bg-gradient-to-tr from-blue-100 to-transparent rounded-tr-full opacity-60 z-0 pointer-events-none"></div>
+                        
+                        <div class="bg-gradient-to-r from-orange-600 to-orange-400 px-[19px] py-4 flex items-center gap-3 relative z-10 shadow-sm">
+                            <div class="h-16 md:h-20 max-w-[35%] flex-shrink-0 flex items-center justify-center">
+                                <img src="https://i.ibb.co.com/Wvf6CP6Y/Cover-Lomba-2.png" class="h-full w-auto object-contain drop-shadow-md" alt="Logo">
+                            </div>
+                            <div class="text-left text-white flex-grow min-w-0 flex flex-col justify-center">
+                                <h2 class="text-[13px] md:text-[15px] font-black uppercase tracking-wider leading-tight drop-shadow-md break-words w-full">Kartu Peserta Lomba</h2>
+                                <p class="text-[10px] md:text-xs font-semibold opacity-95 mt-0.5 uppercase tracking-wide leading-tight w-full">Tingkat Kec. Sukamakmur<br>Tahun 2026</p>
+                            </div>
+                        </div>
+
+                        <div class="p-4 flex gap-4 items-center relative z-10">
+                            ${fotoElement}
+                            <div class="flex flex-col justify-center flex-grow min-w-0">
+                                <h3 class="text-lg md:text-xl font-extrabold text-gray-900 leading-tight mb-2 truncate" title="${reg.namaPeserta}">${shortName}</h3>
+                                <div class="inline-flex items-center bg-orange-50 text-orange-600 border border-orange-200 px-2 py-1 rounded-md text-[11px] font-bold tracking-widest shadow-sm w-max">
+                                    <i class="fas fa-id-badge mr-1.5 opacity-70"></i> ${reg.idPeserta}
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="px-4 pb-4 relative z-10">
+                            <div class="bg-white/80 backdrop-blur-sm rounded-xl p-3 text-left space-y-2 border border-gray-100 text-sm shadow-sm">
+                                <div class="flex justify-between border-b border-gray-100 pb-1.5 items-center">
+                                    <span class="text-[10px] font-bold text-gray-500 uppercase flex items-center"><i class="fas fa-fingerprint w-4 text-gray-400"></i> NISN</span>
+                                    <span class="font-mono font-bold text-gray-800 text-xs">${reg.nisn}</span>
+                                </div>
+                                <div class="flex justify-between border-b border-gray-100 pb-1.5 items-center">
+                                    <span class="text-[10px] font-bold text-gray-500 uppercase flex items-center"><i class="fas fa-school w-4 text-gray-400"></i> Asal</span>
+                                    <span class="font-bold text-gray-800 text-xs text-right w-2/3 truncate" title="${reg.namaSekolah}">${reg.namaSekolah}</span>
+                                </div>
+                                <div class="flex justify-between items-center pt-0.5">
+                                    <span class="text-[10px] font-bold text-gray-500 uppercase flex items-center"><i class="fas fa-trophy w-4 text-orange-400"></i> Lomba</span>
+                                    <span class="font-extrabold text-orange-600 text-xs text-right w-2/3 truncate" title="${reg.lomba}">${reg.lomba}</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="bg-gray-50 px-4 py-3 border-t border-gray-200 flex justify-between items-center relative z-10">
+                            <span class="text-[10px] font-bold text-gray-500 uppercase">Status Cek</span>
+                            <span class="inline-flex items-center px-3 py-1 rounded-lg text-[10px] font-extrabold border bg-green-100 text-green-800 border-green-200 shadow-sm">
+                                Disetujui / Terdaftar
+                            </span>
+                        </div>
+                    </div>
+                </div>
+            `;
+            openFormModal('modalViewPeserta');
+        }
+        function abbreviateName(name) {
+            let words = name.trim().split(/\s+/);
+            if (words.length <= 2) return name;
+            let result = words[0] + " " + words[1];
+            for (let i = 2; i < words.length; i++) { result += " " + words[i].charAt(0).toUpperCase() + "."; }
+            return result;
+        }
+
+        // --- BERITA ACARA PIC ---
+        function renderPicBA() {
+            const tbody = document.getElementById('pic-ba-table');
+            if(!tbody) return;
+            let filteredBA = DATA_BERITA_ACARA;
+            if(currentState.user.role === 'pic' && currentState.user.cabang !== 'Semua') {
+                filteredBA = filteredBA.filter(ba => ba.cabang === currentState.user.cabang);
+            }
+
+            if(filteredBA.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="5" class="p-8 text-center text-gray-400 italic">Belum ada Berita Acara dibuat.</td></tr>';
+            } else {
+                tbody.innerHTML = filteredBA.reverse().map(ba => {
+                    let detail = {}; try { detail = JSON.parse(ba.catatan); } catch(e) {}
+                    
+                    let statusBA = ba.status || 'menunggu';
+                    let statusHtml = '';
+                    if(statusBA === 'menunggu') statusHtml = '<span class="bg-yellow-100 text-yellow-800 px-2.5 py-1 rounded-md text-[10px] font-bold whitespace-nowrap"><i class="fas fa-clock mr-1"></i> Menunggu</span>';
+                    else if(statusBA === 'revisi') statusHtml = '<span class="bg-red-100 text-red-800 px-2.5 py-1 rounded-md text-[10px] font-bold whitespace-nowrap"><i class="fas fa-exclamation-triangle mr-1"></i> Revisi</span>';
+                    else if(statusBA === 'disetujui') statusHtml = '<span class="bg-green-100 text-green-800 px-2.5 py-1 rounded-md text-[10px] font-bold whitespace-nowrap"><i class="fas fa-check-circle mr-1"></i> Disetujui</span>';
+                    
+                    let btnAksi = `<button onclick="viewBeritaAcara(${ba.id})" class="bg-gray-100 text-gray-600 hover:bg-gray-200 px-2 py-1.5 rounded text-xs font-bold transition-colors shadow-sm mx-0.5" title="Lihat/Cetak PDF"><i class="fas fa-file-pdf"></i></button>`;
+                    if (statusBA === 'revisi' || statusBA === 'menunggu') {
+                        btnAksi += `
+                            <button onclick="editBeritaAcara(${ba.id})" class="bg-orange-100 text-orange-600 hover:bg-orange-500 hover:text-white px-2 py-1.5 rounded text-xs font-bold transition-colors shadow-sm mx-0.5"><i class="fas fa-edit"></i></button>
+                        `;
+                    }
+
+                    return `
+                    <tr class="hover:bg-gray-50 transition-colors">
+                        <td class="p-3 font-bold text-gray-800 text-sm">${ba.cabang}</td>
+                        <td class="p-3 text-xs text-gray-500">${detail.tanggal || ba.tanggal} <br> <span class="text-[10px] text-blue-500">${detail.tempat || ''}</span></td>
+                        <td class="p-3 text-xs">
+                            <div class="flex flex-col gap-1">
+                                <span class="text-yellow-600 font-semibold">1. ${detail.juara1 ? detail.juara1.split('|')[0] : '-'}</span>
+                                <span class="text-gray-500 font-semibold">2. ${detail.juara2 ? detail.juara2.split('|')[0] : '-'}</span>
+                                <span class="text-orange-700 font-semibold">3. ${detail.juara3 ? detail.juara3.split('|')[0] : '-'}</span>
+                            </div>
+                        </td>
+                        <td class="p-3 text-center">${statusHtml}</td>
+                        <td class="p-3 text-center whitespace-nowrap">${btnAksi}</td>
+                    </tr>
+                    `;
+                }).join('');
+            }
+        }
+
+        // Add/Edit BA Form Logic 
+        function openAddBeritaAcaraModal() {
+            const form = document.getElementById('form-add-berita-acara'); form.reset();
+            document.getElementById('ba-edit-id').value = '';
+            document.getElementById('ba-cabang').value = currentState.user.cabang === 'Semua' ? '' : currentState.user.cabang;
+            document.getElementById('ba-tanggal').value = getTodayDate();
+            
+            const datalistCabang = document.getElementById('list-ba-cabang');
+            const inputCabang = document.getElementById('ba-cabang');
+            if(currentState.user.cabang === 'Semua') {
+                inputCabang.removeAttribute('readonly');
+                datalistCabang.innerHTML = '';
+                Object.keys(LOMBA_CATEGORIES).forEach(kat => {
+                    LOMBA_CATEGORIES[kat].forEach(l => { datalistCabang.innerHTML += `<option value="${kat} - ${l.name}"></option>`; });
+                });
+            } else {
+                inputCabang.setAttribute('readonly', 'true');
+            }
+
+            populateJuaraDropdowns();
+            openFormModal('modalAddBeritaAcara');
+        }
+
+        function populateJuaraDropdowns() {
+            const cabang = document.getElementById('ba-cabang').value;
+            const datalist = document.getElementById('list-peserta-ba');
+            let options = '';
+            if(cabang) {
+                const pesertaLomba = DATA_REGISTRATIONS.filter(r => r.lomba === cabang && r.status === 'terdaftar');
+                let isTeam = false;
+                Object.keys(LOMBA_CATEGORIES).forEach(kat => {
+                    const match = LOMBA_CATEGORIES[kat].find(l => `${kat} - ${l.name}` === cabang);
+                    if(match && match.count > 1) isTeam = true;
+                });
+                if(isTeam) {
+                    const schools = [...new Set(pesertaLomba.map(p => p.namaSekolah))];
+                    schools.forEach(sek => { options += `<option value="${sek}|${sek}"></option>`; });
+                } else {
+                    pesertaLomba.forEach(p => { options += `<option value="${p.namaPeserta}|${p.namaSekolah}"></option>`; });
+                }
+            }
+            datalist.innerHTML = options;
+        }
+
+        function editBeritaAcara(id) {
+            const ba = DATA_BERITA_ACARA.find(b => b.id === id); if(!ba) return;
+            openAddBeritaAcaraModal(); // Setup awal
+            document.getElementById('ba-edit-id').value = id;
+            document.getElementById('ba-cabang').value = ba.cabang;
+            populateJuaraDropdowns();
+            let d = {}; try{ d=JSON.parse(ba.catatan); }catch(e){}
+            setTimeout(()=>{
+                document.getElementById('ba-tanggal').value = ba.tanggal ? new Date(ba.tanggal).toISOString().split('T')[0] : getTodayDate();
+                document.getElementById('ba-tempat').value = d.tempat || '';
+                for(let i=1;i<=3;i++) {
+                    document.getElementById(`ba-juara${i}`).value = d[`juara${i}`] || '';
+                    document.getElementById(`ba-skor${i}`).value = d[`skor${i}`] || '';
+                    document.getElementById(`ba-juri${i}`).value = d[`juri${i}`] || '';
+                }
+            }, 50);
+        }
+
+        function submitBeritaAcara(e) {
+            withLoadingButton(e, 'Menyimpan...', async () => {
+                const det = {
+                    tempat: document.getElementById('ba-tempat').value,
+                    tanggal: formatDate(document.getElementById('ba-tanggal').value),
+                    juara1: document.getElementById('ba-juara1').value, skor1: document.getElementById('ba-skor1').value,
+                    juara2: document.getElementById('ba-juara2').value, skor2: document.getElementById('ba-skor2').value,
+                    juara3: document.getElementById('ba-juara3').value, skor3: document.getElementById('ba-skor3').value,
+                    juri1: document.getElementById('ba-juri1').value, juri2: document.getElementById('ba-juri2').value, juri3: document.getElementById('ba-juri3').value
+                };
+                const editId = document.getElementById('ba-edit-id').value;
+                let payload = {};
+                
+                if(editId) {
+                    const i = DATA_BERITA_ACARA.findIndex(b=>b.id===parseInt(editId));
+                    DATA_BERITA_ACARA[i].cabang = document.getElementById('ba-cabang').value;
+                    DATA_BERITA_ACARA[i].catatan = JSON.stringify(det);
+                    DATA_BERITA_ACARA[i].tanggal = det.tanggal;
+                    DATA_BERITA_ACARA[i].status = 'menunggu';
+                    DATA_BERITA_ACARA[i].action = 'update_berita_acara';
+                    payload = DATA_BERITA_ACARA[i];
+                } else {
+                    payload = { action: 'add_berita_acara', id: Date.now(), cabang: document.getElementById('ba-cabang').value, catatan: JSON.stringify(det), tanggal: det.tanggal, status: 'menunggu' };
+                    DATA_BERITA_ACARA.push(payload);
+                }
+                
+                await syncUpdateToServer(payload, false);
+                closeFormModal('modalAddBeritaAcara');
+                renderPicBA(); updatePicProgress();
+                showModal('Sukses', 'Berita Acara berhasil disimpan.', 'success', true, 1500);
+            });
+        }
+
+        // PDF Generation functions
+        function openModalCetakKehadiran(isKosong) {
+            document.getElementById('cetak-kehadiran-iskosong').value = isKosong ? "true" : "false";
+            const selectLomba = document.getElementById('modal-filter-lomba-kehadiran');
+            
+            selectLomba.innerHTML = '';
+            if(currentState.user.role === 'pic' && currentState.user.cabang !== 'Semua') {
+                selectLomba.innerHTML = `<option value="${currentState.user.cabang}">${currentState.user.cabang}</option>`;
+            } else {
+                selectLomba.innerHTML = '<option value="">Semua Lomba</option>';
+                Object.keys(LOMBA_CATEGORIES).forEach(kat => { 
+                    LOMBA_CATEGORIES[kat].forEach(l => { selectLomba.innerHTML += `<option value="${kat} - ${l.name}">${kat} - ${l.name}</option>`; }); 
+                });
+            }
+            openFormModal('modalCetakKehadiran');
+        }
+
+        function executeCetakKehadiran() {
+            const isKosong = document.getElementById('cetak-kehadiran-iskosong').value === "true";
+            cetakDaftarHadirPDF(isKosong);
+        }
+
+        async function cetakDaftarHadirPDF(isKosong) {
+            const filterLomba = document.getElementById('modal-filter-lomba-kehadiran').value;
+            const lombaTitle = filterLomba ? filterLomba : "Semua Lomba";
+            
+            showModal('Mempersiapkan PDF...', 'Sedang merender Daftar Hadir, harap tunggu...', 'info', true, 0);
+
+            try {
+                const { jsPDF } = window.jspdf;
+                const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+                const logoB64 = await fetchLogoBase64('https://i.ibb.co.com/k2CSqMNP/Screenshot-2026-04-10-230641.png');
+
+                let lombaList = [];
+                if (filterLomba) { lombaList.push(filterLomba); } 
+                else {
+                    Object.keys(LOMBA_CATEGORIES).forEach(kat => {
+                        LOMBA_CATEGORIES[kat].forEach(l => { lombaList.push(`${kat} - ${l.name}`); });
+                    });
+                }
+
+                let isFirstPage = true;
+
+                for (let lIdx = 0; lIdx < lombaList.length; lIdx++) {
+                    const currentLomba = lombaList[lIdx];
+                    let displayData = [];
+
+                    let peserta = DATA_REGISTRATIONS.filter(r => r.lomba === currentLomba && r.status === 'terdaftar');
+                    
+                    let isTeam = false;
+                    Object.keys(LOMBA_CATEGORIES).forEach(kat => {
+                        const match = LOMBA_CATEGORIES[kat].find(l => `${kat} - ${l.name}` === currentLomba);
+                        if(match && match.count > 1) isTeam = true;
+                    });
+
+                    let seenSchools = {}; 
+                    peserta.forEach(p => {
+                        if (isTeam) {
+                            const key = `${p.npsn}`; 
+                            if (!seenSchools[key]) {
+                                seenSchools[key] = true;
+                                displayData.push({ nama: `TIM ${p.namaSekolah}`, sekolah: p.namaSekolah, hadir: p.hadir });
+                            }
+                        } else {
+                            displayData.push({ nama: p.namaPeserta, sekolah: p.namaSekolah, hadir: p.hadir });
+                        }
+                    });
+                    
+                    displayData.sort((a,b) => a.sekolah.localeCompare(b.sekolah));
+                    if (displayData.length === 0) continue; 
+
+                    if (!isFirstPage) doc.addPage();
+                    isFirstPage = false;
+
+                    if(logoB64) doc.addImage(logoB64, 'PNG', 10, 10, 190, 30);
+                    doc.setLineWidth(0.8); doc.line(10, 42, 200, 42);
+
+                    doc.setFont("helvetica", "bold"); doc.setFontSize(14);
+                    doc.text("DAFTAR HADIR PESERTA LOMBA", 105, 52, { align: "center" });
+                    doc.setFontSize(11); doc.text(`Cabang Lomba: ${currentLomba}`, 105, 58, { align: "center" });
+                    doc.setFontSize(10); doc.text("Tingkat Kecamatan Sukamakmur Tahun 2026", 105, 63, { align: "center" });
+
+                    const drawTableHeader = (y) => {
+                        doc.setLineWidth(0.3); doc.setFillColor(230, 230, 230);
+                        doc.rect(10, y, 190, 8, 'F'); doc.rect(10, y, 190, 8);      
+                        doc.setFontSize(9); doc.setFont("helvetica", "bold");
+                        doc.text("No", 15, y + 5.5, { align: "center" });
+                        doc.text("Nama Peserta / Tim", 50, y + 5.5, { align: "center" });
+                        doc.text("Asal Sekolah", 115, y + 5.5, { align: "center" });
+                        if (isKosong) doc.text("Tanda Tangan", 160, y + 5.5, { align: "center" });
+                        else doc.text("Status Kehadiran", 160, y + 5.5, { align: "center" });
+                        doc.text("Keterangan", 190, y + 5.5, { align: "center" }); 
+                        doc.line(20, y, 20, y + 8); doc.line(90, y, 90, y + 8);
+                        doc.line(140, y, 140, y + 8); doc.line(180, y, 180, y + 8);
+                        doc.setFont("helvetica", "normal");
+                    };
+
+                    let startY = 72; drawTableHeader(startY);
+                    let curY = startY + 8; const rowHeight = 10; 
+                    
+                    displayData.forEach((row, i) => {
+                        if (curY > 260) { doc.addPage(); curY = 20; drawTableHeader(curY); curY += 8; }
+                        doc.rect(10, curY, 190, rowHeight);
+                        doc.text(String(i+1), 15, curY + 6, { align: "center" });
+                        let textNama = doc.splitTextToSize(row.nama, 65)[0] || '';
+                        if(!filterLomba && isKosong) {
+                            doc.text(textNama, 22, curY + 4);
+                            doc.setFontSize(7); doc.setTextColor(100,100,100); doc.text(currentLomba, 22, curY + 8);
+                            doc.setFontSize(9); doc.setTextColor(0,0,0);
+                        } else { doc.text(textNama, 22, curY + 6); }
+                        
+                        let textSekolah = doc.splitTextToSize(row.sekolah, 45)[0] || '';
+                        doc.text(textSekolah, 92, curY + 6);
+
+                        if (isKosong) {
+                            doc.setFontSize(7); doc.setTextColor(150, 150, 150);
+                            if (i % 2 === 0) doc.text(String(i+1) + " ....................", 142, curY + 6);
+                            else doc.text(String(i+1) + " ....................", 162, curY + 6);
+                            doc.setFontSize(9); doc.setTextColor(0, 0, 0);
+                        } else {
+                            doc.setFont("helvetica", "bold");
+                            if (row.hadir) { doc.setTextColor(22, 163, 74); doc.text("HADIR", 160, curY + 6, {align: "center"}); } 
+                            else { doc.setTextColor(220, 38, 38); doc.text("TIDAK HADIR", 160, curY + 6, {align: "center"}); }
+                            doc.setFont("helvetica", "normal"); doc.setTextColor(0, 0, 0);
+                        }
+                        doc.line(20, curY, 20, curY + rowHeight);  doc.line(90, curY, 90, curY + rowHeight);  
+                        doc.line(140, curY, 140, curY + rowHeight); doc.line(180, curY, 180, curY + rowHeight); 
+                        curY += rowHeight;
+                    });
+
+                    if (curY + 45 > 280) { doc.addPage(); curY = 20; }
+                    curY += 15;
+                    
+                    let teksTanggal = "";
+                    const tglSekarang = formatDate(new Date());
+                    const baLomba = DATA_BERITA_ACARA.find(b => b.cabang === currentLomba);
+                    if (baLomba && baLomba.tanggal) { teksTanggal = `Sukamakmur, ${formatDate(baLomba.tanggal)}`; } 
+                    else { teksTanggal = `Sukamakmur, ${tglSekarang}`; }
+                    if (isKosong) { teksTanggal = "Sukamakmur, ............................ 2026"; }
+                    
+                    doc.setFont("helvetica", "normal"); doc.setFontSize(11);
+                    doc.text(teksTanggal, 160, curY, { align: "center" }); curY += 6;
+                    doc.text("Penanggung Jawab (PIC)", 160, curY, { align: "center" });
+                    
+                    let picMatch = DATA_PICS.find(p => p.cabang === currentLomba || p.cabang === 'Semua');
+                    let picName = picMatch ? picMatch.nama : 'Panitia Lomba';
+
+                    if (!isKosong) {
+                        let qrStr = `Disahkan secara digital oleh PIC: ${picName} - Lomba: ${currentLomba}`;
+                        let qrBase64 = await generateQRBase64(qrStr);
+                        doc.addImage(qrBase64, 'PNG', 150, curY + 2, 20, 20);
+                        curY += 28;
+                        doc.setFont("helvetica", "bold");
+                        doc.text(`( ${picName} )`, 160, curY, { align: "center" });
+                    } else {
+                        curY += 28;
+                        doc.setFont("helvetica", "bold");
+                        doc.text("( ........................................................ )", 160, curY, { align: "center" });
+                    }
+                }
+
+                if (isFirstPage) { doc.setFontSize(12); doc.text("Tidak ada data peserta untuk dicetak pada pilihan ini.", 105, 100, {align:"center"}); }
+
+                const fileNameTitle = filterLomba ? filterLomba.replace(/\s+/g, '_') : 'Semua_Lomba';
+                const fileName = isKosong ? `Format_Kosong_Hadir_${fileNameTitle}.pdf` : `Daftar_Hadir_${fileNameTitle}.pdf`;
+                doc.save(fileName);
+                
+                closeFormModal('modalCetakKehadiran');
+                closeModal(); showModal('Sukses', 'File Daftar Hadir berhasil diunduh.', 'success', true, 2000);
+
+            } catch (err) {
+                closeModal(); console.error(err); showModal('Error', 'Terjadi kesalahan saat memproses PDF.', 'error');
+            }
+        }
+
+        async function buildBAPDF(doc, cabang, detail) {
+            const logoB64 = await fetchLogoBase64('https://i.ibb.co.com/k2CSqMNP/Screenshot-2026-04-10-230641.png');
+            if(logoB64) doc.addImage(logoB64, 'PNG', 10, 10, 190, 30);
+            doc.setLineWidth(0.8); doc.line(10, 42, 200, 42);
+
+            doc.setFont("helvetica", "bold"); doc.setFontSize(14);
+            doc.text("BERITA ACARA PEMENANG LOMBA", 105, 52, { align: "center" });
+            doc.setFontSize(12); doc.text(cabang.toUpperCase(), 105, 58, { align: "center" });
+
+            doc.setFont("helvetica", "normal"); doc.setFontSize(11);
+            const dStr = detail.tanggal || ''; 
+            const parts = dStr.split(' '); 
+            const tgl = parts[0] || '...'; const bln = parts[1] || '...'; const thn = parts[2] || '2026';
+            const teksBuka = `Pada hari ini tanggal ${tgl} Bulan ${bln} tahun ${thn} bertempat di ${detail.tempat || '...'}, kami Dewan Juri lomba ${cabang} dengan ini memutuskan:`;
+            doc.text(teksBuka, 10, 70, { maxWidth: 190, align: "justify", lineHeightFactor: 1.5 });
+
+            const startY = 85; doc.setLineWidth(0.3);
+            doc.setFillColor(230, 230, 230); doc.rect(10, startY, 190, 8, 'F'); doc.rect(10, startY, 190, 8); 
+            doc.setFont("helvetica", "bold");
+            doc.text("Juara", 22.5, startY + 5.5, { align: "center" }); doc.text("Nama Peserta / Tim", 80, startY + 5.5, { align: "center" });
+            doc.text("Nama Sekolah", 150, startY + 5.5, { align: "center" }); doc.text("Skor", 187.5, startY + 5.5, { align: "center" });
+
+            doc.setFont("helvetica", "normal");
+            const parseJuara = (str) => {
+                if(!str) return {nama: '', sek: ''};
+                const p = str.split('|'); let n = p[0]; let s = p[1] || '';
+                if(n.toLowerCase().includes("tim ") || n.toLowerCase().includes("dkk")) { n = s; }
+                return {nama: n, sek: s};
+            }
+            const j1 = parseJuara(detail.juara1); const j2 = parseJuara(detail.juara2); const j3 = parseJuara(detail.juara3);
+
+            const rows = [
+                { j: "1 (Satu)", n: j1.nama, s: j1.sek, sk: detail.skor1 || '-' },
+                { j: "2 (Dua)", n: j2.nama, s: j2.sek, sk: detail.skor2 || '-' },
+                { j: "3 (Tiga)", n: j3.nama, s: j3.sek, sk: detail.skor3 || '-' }
+            ];
+
+            let curY = startY + 8;
+            rows.forEach(r => {
+                const splitNama = doc.splitTextToSize(r.n, 85);
+                const splitSek = doc.splitTextToSize(r.s, 45);
+                const maxLines = Math.max(splitNama.length, splitSek.length, 1);
+                const rowHeight = (maxLines * 5) + 4;
+
+                doc.rect(10, curY, 190, rowHeight);
+                doc.text(r.j, 22.5, curY + 6, { align: "center" });
+                doc.text(splitNama, 38, curY + 6);
+                doc.text(splitSek, 150, curY + 6, { align: "center" });
+                doc.text(r.sk, 187.5, curY + 6, { align: "center" });
+            
+                doc.line(35, curY, 35, curY + rowHeight); doc.line(125, curY, 125, curY + rowHeight); doc.line(175, curY, 175, curY + rowHeight);
+                curY += rowHeight;
+            });
+            doc.line(35, startY, 35, startY+8); doc.line(125, startY, 125, startY+8); doc.line(175, startY, 175, startY+8);
+
+            curY += 8; 
+            const teksTutup = `Sebagai pemenang Lomba ${cabang} Tingkat Kecamatan Sukamakmur Tahun 2026. Keputusan ini kami buat dengan sebenar-benarnya dalam keadaan sehat dan tanpa ada paksaan dari pihak manapun.`;
+            doc.text(teksTutup, 10, curY, { maxWidth: 190, align: "justify", lineHeightFactor: 1.5 });
+
+            curY += 20; const ttdY = curY;
+            doc.setFont("helvetica", "bold"); doc.text("Dewan Juri,", 105, ttdY, { align: "center" });
+
+            const wJuri = 63; const juriArr = [detail.juri1 || '', detail.juri2 || '', detail.juri3 || ''];
+            for(let i=0; i<3; i++) {
+                const jCenter = 10 + (wJuri * i) + (wJuri/2);
+                doc.setFont("helvetica", "normal"); doc.text(`Juri ${i+1}`, jCenter, ttdY + 8, { align: "center" });
+            
+                if(juriArr[i]) {
+                    const qrStr = `Disahkan secara digital oleh: ${juriArr[i]} sebagai Juri ${i+1} - Lomba ${cabang}`;
+                    const qrBase = await generateQRBase64(qrStr);
+                    doc.addImage(qrBase, 'PNG', jCenter - 10, ttdY + 12, 20, 20);
+                }
+                doc.setFont("helvetica", "bold");
+                doc.text(juriArr[i] ? `(${juriArr[i]})` : "(___________________)", jCenter, ttdY + 40, { align: "center" });
+            }
+        }
+
+        async function viewBeritaAcara(id) {
+            const ba = DATA_BERITA_ACARA.find(b => b.id === id); if(!ba) return;
+            showModal('Mempersiapkan Pratinjau...', 'Sedang merender PDF...', 'info', true, 0);
+            try {
+                const { jsPDF } = window.jspdf; const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+                let detail = {}; try { detail = JSON.parse(ba.catatan); } catch(e) { detail = { tanggal: ba.tanggal }; }
+                await buildBAPDF(doc, ba.cabang, detail);
+                const dataUri = doc.output('datauristring');
+                closeModal();
+                
+                document.body.classList.add('overflow-hidden'); 
+                document.getElementById('docModalTitle').innerText = `Preview: ${ba.cabang}`; 
+                document.getElementById('docViewerContainer').innerHTML = `<iframe src="${dataUri}" class="w-full h-full border border-gray-300 rounded shadow-inner bg-white"></iframe>`;
+                document.getElementById('btnDownloadDoc').onclick = () => { doc.save(`BA_${ba.cabang.replace(/\s+/g, '_')}.pdf`); };
+                document.getElementById('docModal').classList.remove('hidden');
+            } catch(e) { closeModal(); console.error(e); showModal('Error', 'Gagal memuat pratinjau.', 'error'); }
+        }
+
+        function closeDocModal() { 
+            document.body.classList.remove('overflow-hidden'); document.getElementById('docModal').classList.add('hidden'); 
+            document.getElementById('docViewerContainer').innerHTML = ''; 
+        }
+
+    </script>
+</body>
+</html>
